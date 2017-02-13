@@ -25,6 +25,7 @@ type Template struct {
 	Dest         string `toml:"dest"`
 	CheckCmd     string `toml:"check-cmd"`
 	NotifyCmd    string `toml:"notify-cmd"`
+	NotifyLbl    string `toml:"notify-lbl"`
 	NotifyOutput bool   `toml:"notify-output"`
 }
 
@@ -82,6 +83,7 @@ func setTemplateFromFlags(conf *Config) {
 		Dest:         flag.Arg(1),
 		CheckCmd:     checkCmd,
 		NotifyCmd:    notifyCmd,
+		NotifyLbl:    notifyLbl,
 		NotifyOutput: notifyOutput,
 	}
 	conf.Templates = []Template{tmpl}

@@ -38,6 +38,7 @@ Usage
 | `log-level`        | Verbosity of log output. Default: `info`.
 | `check-cmd`        | Command to check the content before updating the destination. <br> Use the `{{staging}}` placeholder to reference the staging file.
 | `notify-cmd`       | Command to run after the destination file has been updated.
+| `notify-lbl`       | Run command once for each container with this label.
 | `notify-output`    | Print the result of the notify command to STDOUT.
 | `version`          | Show application version and exit.
 
@@ -98,6 +99,34 @@ nginx:
     io.rancher.sidekicks: template-sidekick
 config-sidekick:
   image: acme/nginx-config
+```
+
+### Notify Labels
+
+Specifying a `notify-lbl` config parameter will run the `notify-cmd` hook once for each container matching the `notify-lbl` value. This parameter can be a single label name (ie. `notify-lbl = "mylabel"`) or a label name with a specific value (ie. `notify-lbl = "mylabel:myvalue"`). Label names and values are colon-separated.
+
+Container `{{.Name}}` and `{{.Address}}` values can be used as template variables in the `notify-cmd` string. This allows the `notify-cmd` to be tailored to specific containers. See the following example which appends text to a file:
+
+##### Example config.toml file
+
+```
+[[template]]
+source = "/etc/rancher-gen/nginx.tmpl"
+dest = "/etc/rancher-gen/nginx.conf"
+check-cmd = "echo $(date)\t check >> /etc/rancher-gen/check.log"
+notify-cmd = "echo $(date)\t notify N:{{Name}} A:{{Address}} >> /etc/rancher-gen/notify.log"
+notify-lbl = "testlabel:1"
+notify-output = true
+```
+
+This example will run `notify-cmd` once for each unique container with a label name of `testlabel` and a label value of `1`, and the container Name and Address will substitue for values during runtime.
+
+##### Example Output
+
+```
+Mon Feb 13 22:58:39 UTC 2017 notify N:whoami-whoami-1 A:10.42.85.195
+Mon Feb 13 22:58:39 UTC 2017 notify N:whoami2-whoami-1 A:10.42.130.246
+Mon Feb 13 22:58:39 UTC 2017 notify N:whoami3-whoami-1 A:10.42.234.149
 ```
 
 Template Language
@@ -491,3 +520,27 @@ Examples
 --------
 
 TODO
+
+Development
+-----------
+
+Prerequisites:
+
+1. [Go](https://golang.org/doc/install)
+1. Running [Rancher](http://docs.rancher.com/rancher/latest/en/installing-rancher/installing-server/) instance
+1. [rancher-compose(https://docs.rancher.com/rancher/v1.4/en/cattle/rancher-compose/) (and associated environment variables)
+
+Setup:
+
+1. Ensure Go is installed, `cd` into your `go-work` (or equivalent) directory within `$GOPATH`
+1. `git clone` this repo, cd into repo
+1. Ensure test directory exists: `mkdir -p test`
+
+Development workflow can happen as follows:
+
+1. Build project: `make build`
+1. Create Docker image: `make dev-image`
+1. Run in Rancher: `rancher-compose up` (add `-d` if needed)
+1. Inspect, and `rancher-compose rm` when finished. Repeat.
+
+See `make` for more commands.

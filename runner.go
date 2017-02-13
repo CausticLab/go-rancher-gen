@@ -179,12 +179,81 @@ func (r *runner) processTemplate(funcs template.FuncMap, t Template) error {
 	log.Info("Destination file %s has been updated", t.Dest)
 
 	if t.NotifyCmd != "" {
-		if err := notify(t.NotifyCmd, t.NotifyOutput); err != nil {
+		if t.NotifyLbl != "" {
+			if err := r.notifyLabelGroup(t); err != nil {
+				return fmt.Errorf("Notify Group command failed: %v", err)
+			}
+		} else {
+			if err := notify(t.NotifyCmd, t.NotifyOutput); err != nil {
+				return fmt.Errorf("Notify command failed: %v", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (r *runner) notifyLabelGroup(t Template) error{
+	nLabelName, nLabelValue := "", ""
+	toNotify := []Container{}	// may be more than just Containers in the future
+
+	if t.NotifyLbl == "" {
+		return fmt.Errorf("NotifyLabelGroup failed: no label specified")
+	}
+
+	split := strings.Split(t.NotifyLbl, ":")
+	nLabelName = split[0]
+
+	// Handle labels with and without values
+	if len(split) > 1 {
+		nLabelValue = split[1]
+		log.Debugf("Notifying label '%v' with value '%v'", nLabelName, nLabelValue)
+	} else {
+		log.Debugf("Notifying label '%s'", nLabelName)
+	}
+
+	// Populate `ctx` with system metadata
+	ctx, err := r.createContext()
+	if err != nil {
+		time.Sleep(time.Second * 2)
+		return fmt.Errorf("Failed to create context from Rancher Metadata: %v", err)
+	}
+
+	// Search Services?
+	// Search Hosts?
+	// Search Containers:
+	for _, c := range ctx.Containers {
+		for lbl, val := range c.Labels {
+			if lbl == nLabelName {
+				if (nLabelValue == "") || (val == nLabelValue){
+					fmt.Printf("NOTIFY: %+v :: [%+v:%+v]\n", c.Name, lbl, val)
+					toNotify = append(toNotify, c)
+				}
+			}
+		}
+	}
+
+	// Iterate matched containers & notify
+	for _, c := range toNotify {
+		command, _ := parseNotifyTemplate(c, t);
+
+		if err := notify(command, t.NotifyOutput); err != nil {
 			return fmt.Errorf("Notify command failed: %v", err)
 		}
 	}
 
 	return nil
+}
+
+func parseNotifyTemplate(c Container, t Template) (string, error) {
+	ret := t.NotifyCmd
+	fmt.Printf("Parsing: %+v\n", c.Name)
+
+	// Regex replace all properties in the future
+	ret = strings.Replace(ret, "{{Name}}", c.Name, -1)
+	ret = strings.Replace(ret, "{{Address}}", c.Address, -1)
+
+	return ret, nil
 }
 
 func copyStagingToDestination(stagingPath, destPath string) error {
