@@ -32,6 +32,9 @@ build: build-dir
 deps:
 	go get github.com/tools/godep
 	go get github.com/c4milo/github-release
+	go get github.com/BurntSushi/toml
+	go get github.com/Sirupsen/logrus
+	go get github.com/rancher/go-rancher-metadata/metadata
 
 vet:
 	scripts/vet

@@ -193,9 +193,9 @@ func (r *runner) processTemplate(funcs template.FuncMap, t Template) error {
 	return nil
 }
 
-func (r *runner) notifyLabelGroup(t Template) error{
+func (r *runner) notifyLabelGroup(t Template) error {
 	nLabelName, nLabelValue := "", ""
-	toNotify := []Container{}	// may be more than just Containers in the future
+	toNotify := []Container{} // may be more than just Containers in the future
 
 	if t.NotifyLbl == "" {
 		return fmt.Errorf("NotifyLabelGroup failed: no label specified")
@@ -225,7 +225,7 @@ func (r *runner) notifyLabelGroup(t Template) error{
 	for _, c := range ctx.Containers {
 		for lbl, val := range c.Labels {
 			if lbl == nLabelName {
-				if (nLabelValue == "") || (val == nLabelValue){
+				if (nLabelValue == "") || (val == nLabelValue) {
 					fmt.Printf("NOTIFY: %+v :: [%+v:%+v]\n", c.Name, lbl, val)
 					toNotify = append(toNotify, c)
 				}
@@ -235,7 +235,7 @@ func (r *runner) notifyLabelGroup(t Template) error{
 
 	// Iterate matched containers & notify
 	for _, c := range toNotify {
-		command, _ := parseNotifyTemplate(c, t);
+		command, _ := parseNotifyTemplate(c, t)
 
 		if err := notify(command, t.NotifyOutput); err != nil {
 			return fmt.Errorf("Notify command failed: %v", err)
