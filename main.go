@@ -18,6 +18,7 @@ var (
 	logLevel        string
 	checkCmd        string
 	notifyCmd       string
+	notifyLbl       string
 	onetime         bool
 	showVersion     bool
 	notifyOutput    bool
@@ -37,6 +38,7 @@ func init() {
 	flag.StringVar(&logLevel, "log-level", "info", "Verbosity of log output (debug,info,warn,error)")
 	flag.StringVar(&checkCmd, "check-cmd", "", "Command to check the content before updating the destination file.")
 	flag.StringVar(&notifyCmd, "notify-cmd", "", "Command to run after the destination file has been updated.")
+	flag.StringVar(&notifyLbl, "notify-lbl", "", "Run command once for each container with this label.")
 	flag.BoolVar(&notifyOutput, "notify-output", false, "Print the result of the notify command to STDOUT")
 	flag.BoolVar(&showVersion, "version", false, "Show application version and exit")
 	flag.Usage = printUsage

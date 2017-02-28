@@ -1,0 +1,9 @@
+version: '2'
+
+services:
+  rancher-gen:
+    image: "janeczku/rancher-gen:dev"
+    tty: true
+    stdin_open: true
+    volumes:
+      - /home/emcniece/go-work/src/go-rancher-gen/rancher-gen:/etc/rancher-gen/
