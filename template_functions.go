@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"reflect"
 	"regexp"
 	"strings"
 	"text/template"
@@ -25,6 +26,7 @@ func newFuncMap(ctx *TemplateContext) template.FuncMap {
 		"toLower":   strings.ToLower,
 		"contains":  strings.Contains,
 		"replace":   strings.Replace,
+		"where":     where,
 
 		// Service funcs
 		"host":              hostFunc(ctx),
@@ -182,5 +184,52 @@ func whereLabelMatches(label, pattern string, in interface{}) ([]interface{}, er
 
 	return whereLabel("whereLabelMatches", in, label, func(value string, ok bool) bool {
 		return ok && rx.MatchString(value)
+	})
+}
+
+func getArrayValues(funcName string, entries interface{}) (*reflect.Value, error) {
+	entriesVal := reflect.ValueOf(entries)
+
+	kind := entriesVal.Kind()
+
+	if kind == reflect.Ptr {
+		entriesVal = reflect.Indirect(entriesVal)
+		kind = entriesVal.Kind()
+	}
+
+	switch kind {
+	case reflect.Array, reflect.Slice:
+		break
+	default:
+		return nil, fmt.Errorf("Must pass an array or slice to '%v'; received %v; kind %v", funcName, entries, kind)
+	}
+	return &entriesVal, nil
+}
+
+// Generalized where function
+func generalizedWhere(funcName string, entries interface{}, key string, test func(interface{}) bool) (interface{}, error) {
+	entriesVal, err := getArrayValues(funcName, entries)
+
+	if err != nil {
+		return nil, err
+	}
+
+	selection := make([]interface{}, 0)
+	for i := 0; i < entriesVal.Len(); i++ {
+		v := reflect.Indirect(entriesVal.Index(i)).Interface()
+
+		value := deepGet(v, key)
+		if test(value) {
+			selection = append(selection, v)
+		}
+	}
+
+	return selection, nil
+}
+
+// selects entries based on key
+func where(entries interface{}, key string, cmp interface{}) (interface{}, error) {
+	return generalizedWhere("where", entries, key, func(value interface{}) bool {
+		return reflect.DeepEqual(value, cmp)
 	})
 }
