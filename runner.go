@@ -258,6 +258,9 @@ func parseNotifyTemplate(c Container, t Template) (string, error) {
 
         for _, match := range matches {
                 key := strings.Trim(string(match), "{}")
+		if strings.Index(key, ".") == 0{
+			key = strings.Replace(key, ".", "", 1)
+		}
 
 		if strings.Contains(key, "Labels.") {
 			labelParts := strings.SplitAfterN(key, ".", 2)

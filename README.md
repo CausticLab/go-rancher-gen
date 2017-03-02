@@ -105,7 +105,7 @@ config-sidekick:
 
 Specifying a `notify-lbl` config parameter will run the `notify-cmd` hook once for each container matching the `notify-lbl` value. This parameter can be a single label name (ie. `notify-lbl = "mylabel"`) or a label name with a specific value (ie. `notify-lbl = "mylabel:myvalue"`). Label names and values are colon-separated.
 
-Container fields like `{{Name}}` and `{{Address}}` values can be used as template variables in the `notify-cmd` string. This allows the `notify-cmd` to be tailored to specific containers. Labels can be accessed by period separation (ie. `{{Labels.my.label}}`. See the following example which appends text to a file:
+Container fields like `{{.Name}}` and `{{.Address}}` values can be used as template variables in the `notify-cmd` string. This allows the `notify-cmd` to be tailored to specific containers. Labels can be accessed by period separation (ie. `{{.Labels.my.label}}`. See the following example which appends text to a file:
 
 ##### Example config.toml file
 
