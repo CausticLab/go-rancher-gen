@@ -16,6 +16,8 @@ import (
 	"syscall"
 	"text/template"
 	"time"
+        "regexp"
+	"github.com/fatih/structs"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/rancher/go-rancher-metadata/metadata"
@@ -249,9 +251,28 @@ func parseNotifyTemplate(c Container, t Template) (string, error) {
 	ret := t.NotifyCmd
 	fmt.Printf("Parsing: %+v\n", c.Name)
 
-	// Regex replace all properties in the future
-	ret = strings.Replace(ret, "{{Name}}", c.Name, -1)
-	ret = strings.Replace(ret, "{{Address}}", c.Address, -1)
+        reg, _ := regexp.Compile(`{{[\w\.]*}}`)
+        matches := reg.FindAll( []byte(ret), -1)
+
+	cStruct := structs.New(c)
+
+        for _, match := range matches {
+                key := strings.Trim(string(match), "{}")
+
+		if strings.Contains(key, "Labels.") {
+			labelParts := strings.SplitAfterN(key, ".", 2)
+			label := labelParts[len(labelParts)-1]
+			ret = strings.Replace(ret, string(match), c.Labels[label], -1)
+		} else {
+			// First check to see if key is a field in this struct
+			for _, f := range cStruct.Fields(){
+				if f.Name() == key{
+					val, _ := cStruct.Field(key).Value().(string)
+					ret = strings.Replace(ret, string(match), val, -1)
+				}
+			}
+		}
+        }
 
 	return ret, nil
 }
