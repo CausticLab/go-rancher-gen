@@ -43,9 +43,10 @@ vet:
 test:
 	godep go test -v ./...
 
-release:
-	rm -f build/rancher-gen-linux-amd64.tar.gz
+package: clean build
 	tar -zcvf build/rancher-gen-linux-amd64.tar.gz build/rancher-gen-linux-amd64
+
+release:
 	git tag `cat VERSION`
 	git push origin master --tags
 
