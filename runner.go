@@ -247,11 +247,11 @@ func (r *runner) execLabelGroup(action string, command string, label string, ver
 
 		if action == "check" {
 			if err := check(pCommand, filePath); err != nil {
-				return fmt.Errorf("Check command failed: %v", err)
+				fmt.Errorf("Check command failed: %v", err)
 			}
 		} else if action == "notify"{
 			if err := notify(pCommand, verbose); err != nil {
-				return fmt.Errorf("Notify command failed: %v", err)
+				fmt.Errorf("Notify command failed: %v", err)
 			}
 		}
 	}
