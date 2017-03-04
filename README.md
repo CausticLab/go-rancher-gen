@@ -431,6 +431,14 @@ Alias for the path.Dir function
 
 See Go's [path.Dir()](https://golang.org/pkg/path/#Dir) for more information.
 
+### `exists`
+
+Test for existence of path or file
+
+```liquid
+{{ exists (/path/to/file) }}
+```
+
 ### `env`
 
 Returns the value of the given environment variable or an empty string if the variable isn't set
