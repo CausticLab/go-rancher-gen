@@ -5,7 +5,7 @@ install:
   - make deps
 script:
   - make test
-  - make ci-dist
+  - make travis-ci-dist
 deploy:
   provider: releases
   skip_cleanup: true
