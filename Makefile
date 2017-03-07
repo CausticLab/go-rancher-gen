@@ -25,6 +25,7 @@ help:
 	@echo "make dev-image - build development image"
 	@echo "make dockerhub - build and push image to Docker Hub"
 	@echo "make version - show app version"
+	@echo "make ci-dist - Build distribution files"
 
 build: build-dir
 	CGO_ENABLED=0 GOOS=$(PLATFORM) GOARCH=$(ARCH) godep go build -ldflags "-X main.Version=$(VERSION) -X main.GitSHA=$(GITSHA)" -o build/$(PROJECT)-$(PLATFORM)-$(ARCH)

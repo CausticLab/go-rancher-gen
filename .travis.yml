@@ -1,0 +1,18 @@
+language: go
+go:
+  - 1.7.x
+install:
+  - make deps
+script:
+  - make test
+  - make ci-dist
+deploy:
+  provider: releases
+  skip_cleanup: true
+  api_key:
+    secure: LWnEKhqfQnGgT0XF/1JMOzgYg3DB1bjzT7Cy3xXhRn70Sn7V/+hmFM9K00/0YoKHUDvIc1VUa98JUZkKXF2B7KsZtJja6fgnRNt0JR9dlLSygH7yXXSeyplBW+lch2kYZ17Ut/xniKoYoLFeHdCkp8sNPdOp4n+NLHQDRbPFHJu+c9wkFx79vhLNJKzVM5/Am6nuZ1XhdLMB6hJAEZarcxrv8q6nBnvgXn70LIUTLvXZgioIcGyzWhA/Ltgk3ZIk4QYVqqqxsZ9g1BsaePiGXob1/ay9eYd6bLlJOCoyWUXvm5Pk3Oh6ViD2ZMi1sLjQPXowMAF6xzTRSrcN3zsI/+KOjfUsq4UKwMLqDoHT06DvBGlWnLynps76Ronz2eAhPMCL6I//VfEJXIDmdquKQo90UIRap4awFPijmyrtfPr6LsMkmvyVnmlf81hWZ4kSfIB1WnpRa962bPd/GQmvl/JCGqU3VD3D2fWJop1hq7a/rVcIH86zCPyibtd8oESYms8gDmK9i68RkuCca+9F1vl/lt7BU3Jva5iPh/HZgdqy8HxX4BAiEGJ6QE/LPwx4ZhfCHKMVxw1Bag5uJTY/XmvtuS//RY8zka/fjD46GSXa08r7g6XfzUpch0Mk0z3gYBg1Vo3fZNB1kzHRL1D2ZCiMf0mhh2VodPXS2Mvzydc=
+  file_glob: true
+  file: dist/*
+  on:
+    tags: true
+    repo: CausticLab/go-rancher-gen
