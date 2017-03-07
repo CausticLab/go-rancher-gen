@@ -103,9 +103,9 @@ config-sidekick:
 
 ### Notify Labels
 
-Specifying a `notify-lbl` config parameter will run the `notify-cmd` hook once for each container matching the `notify-lbl` value. This parameter can be a single label name (ie. `notify-lbl = "mylabel"`) or a label name with a specific value (ie. `notify-lbl = "mylabel:myvalue"`). Label names and values are colon-separated.
+Specifying a `notify-lbl` config parameter will run the `check-cmd` and  `notify-cmd` hook once for each container matching the `notify-lbl` value. This parameter can be a single label name (ie. `notify-lbl = "mylabel"`) or a specific label:value pair (ie. `notify-lbl = "mylabel:myvalue"`). Label names and values are colon-separated.
 
-Container `{{.Name}}` and `{{.Address}}` values can be used as template variables in the `notify-cmd` string. This allows the `notify-cmd` to be tailored to specific containers. See the following example which appends text to a file:
+Container fields like `{{.Name}}` and `{{.Address}}` (see the Container model for reference) values can be used as template variables in the `notify-cmd` string. This allows the `notify-cmd` to be tailored to specific containers. Labels can be accessed by period separation (ie. `{{.Labels.my.label}}`. See the following example which appends text to a file:
 
 ##### Example config.toml file
 
@@ -430,6 +430,14 @@ See Go's [path.Base()](https://golang.org/pkg/path/#Base) for more information.
 Alias for the path.Dir function
 
 See Go's [path.Dir()](https://golang.org/pkg/path/#Dir) for more information.
+
+### `exists`
+
+Test for existence of path or file
+
+```liquid
+{{ exists (/path/to/file) }}
+```
 
 ### `env`
 

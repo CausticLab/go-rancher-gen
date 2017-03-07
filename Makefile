@@ -36,12 +36,16 @@ deps:
 	go get github.com/BurntSushi/toml
 	go get github.com/Sirupsen/logrus
 	go get github.com/rancher/go-rancher-metadata/metadata
+	go get github.com/fatih/structs
 
 vet:
 	scripts/vet
 
 test:
 	godep go test -v ./...
+
+package: clean build
+	tar -zcvf build/rancher-gen-linux-amd64.tar.gz build/rancher-gen-linux-amd64
 
 release:
 	git tag `cat VERSION`

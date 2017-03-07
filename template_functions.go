@@ -27,6 +27,7 @@ func newFuncMap(ctx *TemplateContext) template.FuncMap {
 		"contains":  strings.Contains,
 		"replace":   strings.Replace,
 		"where":     where,
+		"exists":    exists,
 
 		// Service funcs
 		"host":              hostFunc(ctx),
@@ -232,4 +233,16 @@ func where(entries interface{}, key string, cmp interface{}) (interface{}, error
 	return generalizedWhere("where", entries, key, func(value interface{}) bool {
 		return reflect.DeepEqual(value, cmp)
 	})
+}
+
+// detects whether file or path exists
+func exists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
 }

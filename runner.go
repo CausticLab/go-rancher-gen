@@ -16,6 +16,8 @@ import (
 	"syscall"
 	"text/template"
 	"time"
+        "regexp"
+	"github.com/fatih/structs"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/rancher/go-rancher-metadata/metadata"
@@ -166,8 +168,14 @@ func (r *runner) processTemplate(funcs template.FuncMap, t Template) error {
 	defer os.Remove(stagingFile)
 
 	if t.CheckCmd != "" {
-		if err := check(t.CheckCmd, stagingFile); err != nil {
-			return fmt.Errorf("Check command failed: %v", err)
+		if t.NotifyLbl != "" {
+			if err := r.execLabelGroup("check", t.CheckCmd, t.NotifyLbl, t.NotifyOutput, stagingFile); err != nil {
+				return fmt.Errorf("Notify Group command failed: %v", err)
+			}
+		} else {
+			if err := check(t.CheckCmd, stagingFile); err != nil {
+				return fmt.Errorf("Check command failed: %v", err)
+			}
 		}
 	}
 
@@ -180,7 +188,7 @@ func (r *runner) processTemplate(funcs template.FuncMap, t Template) error {
 
 	if t.NotifyCmd != "" {
 		if t.NotifyLbl != "" {
-			if err := r.notifyLabelGroup(t); err != nil {
+			if err := r.execLabelGroup("notify", t.NotifyCmd, t.NotifyLbl, t.NotifyOutput, ""); err != nil {
 				return fmt.Errorf("Notify Group command failed: %v", err)
 			}
 		} else {
@@ -193,15 +201,15 @@ func (r *runner) processTemplate(funcs template.FuncMap, t Template) error {
 	return nil
 }
 
-func (r *runner) notifyLabelGroup(t Template) error {
+func (r *runner) execLabelGroup(action string, command string, label string, verbose bool, filePath string) error {
 	nLabelName, nLabelValue := "", ""
 	toNotify := []Container{} // may be more than just Containers in the future
 
-	if t.NotifyLbl == "" {
+	if label == "" {
 		return fmt.Errorf("NotifyLabelGroup failed: no label specified")
 	}
 
-	split := strings.Split(t.NotifyLbl, ":")
+	split := strings.Split(label, ":")
 	nLabelName = split[0]
 
 	// Handle labels with and without values
@@ -235,23 +243,51 @@ func (r *runner) notifyLabelGroup(t Template) error {
 
 	// Iterate matched containers & notify
 	for _, c := range toNotify {
-		command, _ := parseNotifyTemplate(c, t)
+		pCommand, _ := parseCmdTemplate(c, command)
 
-		if err := notify(command, t.NotifyOutput); err != nil {
-			return fmt.Errorf("Notify command failed: %v", err)
+		if action == "check" {
+			if err := check(pCommand, filePath); err != nil {
+				fmt.Errorf("Check command failed: %v", err)
+			}
+		} else if action == "notify"{
+			if err := notify(pCommand, verbose); err != nil {
+				fmt.Errorf("Notify command failed: %v", err)
+			}
 		}
 	}
 
 	return nil
 }
 
-func parseNotifyTemplate(c Container, t Template) (string, error) {
-	ret := t.NotifyCmd
+func parseCmdTemplate(c Container, command string) (string, error) {
+	ret := command
 	fmt.Printf("Parsing: %+v\n", c.Name)
 
-	// Regex replace all properties in the future
-	ret = strings.Replace(ret, "{{Name}}", c.Name, -1)
-	ret = strings.Replace(ret, "{{Address}}", c.Address, -1)
+        reg, _ := regexp.Compile(`{{[\w\.]*}}`)
+        matches := reg.FindAll( []byte(ret), -1)
+
+	cStruct := structs.New(c)
+
+        for _, match := range matches {
+                key := strings.Trim(string(match), "{}")
+		if strings.Index(key, ".") == 0{
+			key = strings.Replace(key, ".", "", 1)
+		}
+
+		if strings.Contains(key, "Labels.") {
+			labelParts := strings.SplitAfterN(key, ".", 2)
+			label := labelParts[len(labelParts)-1]
+			ret = strings.Replace(ret, string(match), c.Labels[label], -1)
+		} else {
+			// First check to see if key is a field in this struct
+			for _, f := range cStruct.Fields(){
+				if f.Name() == key{
+					val, _ := cStruct.Field(key).Value().(string)
+					ret = strings.Replace(ret, string(match), val, -1)
+				}
+			}
+		}
+        }
 
 	return ret, nil
 }
@@ -519,3 +555,4 @@ func createStagingFile(content []byte, destFile string) (string, error) {
 	fp.Close()
 	return fp.Name(), nil
 }
+
