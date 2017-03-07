@@ -7,3 +7,4 @@ rancher-gen
 secrets.txt
 .DS_Store
 go-rancher-gen
+/docker-compose.yml
