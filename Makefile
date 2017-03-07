@@ -25,6 +25,7 @@ help:
 	@echo "make dev-image - build development image"
 	@echo "make dockerhub - build and push image to Docker Hub"
 	@echo "make version - show app version"
+	@echo "make travis-ci-dist - Build distribution files with for travis"
 
 build: build-dir
 	CGO_ENABLED=0 GOOS=$(PLATFORM) GOARCH=$(ARCH) godep go build -ldflags "-X main.Version=$(VERSION) -X main.GitSHA=$(GITSHA)" -o build/$(PROJECT)-$(PLATFORM)-$(ARCH)
@@ -76,6 +77,15 @@ build-dir:
 
 dist-dir:
 	@rm -rf dist && mkdir dist
+
+travis-ci-dist: ci-compile dist-dir
+	$(eval FILES := $(shell ls build))
+	@for f in $(FILES); do \
+		(cd $(shell pwd)/build/$$f && tar -cvzf ../../dist/$$f.tar.gz *); \
+		(cd $(shell pwd)/dist && shasum -a 256 $$f.tar.gz > $$f.sha256); \
+		(cd $(shell pwd)/dist && md5sum $$f.tar.gz > $$f.md5); \
+		echo $$f; \
+	done
 
 ci-dist: ci-compile dist-dir
 	$(eval FILES := $(shell ls build))
