@@ -27,6 +27,7 @@ type Template struct {
 	NotifyCmd    string `toml:"notify-cmd"`
 	NotifyLbl    string `toml:"notify-lbl"`
 	NotifyOutput bool   `toml:"notify-output"`
+	Staging			 string ""
 }
 
 func initConfig() (*Config, error) {
@@ -85,6 +86,7 @@ func setTemplateFromFlags(conf *Config) {
 		NotifyCmd:    notifyCmd,
 		NotifyLbl:    notifyLbl,
 		NotifyOutput: notifyOutput,
+		Staging:			"",
 	}
 	conf.Templates = []Template{tmpl}
 }
