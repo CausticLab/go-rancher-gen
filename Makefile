@@ -7,7 +7,7 @@
 PROJECT := rancher-gen
 PLATFORM := linux
 ARCH := amd64
-DOCKER_IMAGE := janeczku/$(PROJECT)
+DOCKER_IMAGE := causticlab/$(PROJECT)
 
 VERSION := $(shell cat VERSION)
 GITSHA := $(shell git rev-parse --short HEAD)

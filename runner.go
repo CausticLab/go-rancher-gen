@@ -119,94 +119,130 @@ func (r *runner) poll() error {
 }
 
 func (r *runner) processTemplate(funcs template.FuncMap, t Template) error {
-	log.Debugf("Processing template %s for destination %s", t.Source, t.Dest)
-	if _, err := os.Stat(t.Source); os.IsNotExist(err) {
-		log.Fatalf("Template '%s' is missing", t.Source)
+
+	if (t.Source != "") && (t.Dest != "") {
+		log.Debugf("Processing template %s for destination %s", t.Source, t.Dest)
+		if _, err := os.Stat(t.Source); os.IsNotExist(err) {
+			log.Fatalf("Template '%s' is missing", t.Source)
+		}
+
+		tmplBytes, err := ioutil.ReadFile(t.Source)
+		if err != nil {
+			log.Fatalf("Could not read template '%s': %v", t.Source, err)
+		}
+
+		name := filepath.Base(t.Source)
+		newTemplate, err := template.New(name).Funcs(funcs).Parse(string(tmplBytes))
+		if err != nil {
+			log.Fatalf("Could not parse template '%s': %v", t.Source, err)
+		}
+
+		buf := new(bytes.Buffer)
+		if err := newTemplate.Execute(buf, nil); err != nil {
+			log.Fatalf("Could not render template: '%s': %v", t.Source, err)
+		}
+
+		content := buf.Bytes()
+
+		if t.Dest == "" {
+			log.Debug("No destination specified. Printing to StdOut")
+			os.Stdout.Write(content)
+			return nil
+		}
+
+		log.Debug("Checking whether content has changed")
+		same, err := sameContent(content, t.Dest)
+		if err != nil {
+			return fmt.Errorf("Could not compare content for %s: %v", t.Dest, err)
+		}
+
+		if same {
+			log.Debugf("Destination %s is up to date", t.Dest)
+			return nil
+		}
+
+		log.Debug("Creating staging file")
+		stagingFile, err := createStagingFile(content, t.Dest)
+		t.Staging = stagingFile
+		if err != nil {
+			return err
+		}
+
+		log.Debugf("Writing destination")
+		if err := copyStagingToDestination(stagingFile, t.Dest); err != nil {
+			return fmt.Errorf("Could not write destination file %s: %v", t.Dest, err)
+		}
+
+		log.Info("Destination file has been updated: ", t.Dest)
+
+		defer os.Remove(stagingFile)
+
+	} else {
+		// No source or dest - just run check/notify commands
+		log.Debugf("No template - processing commands")
 	}
 
-	tmplBytes, err := ioutil.ReadFile(t.Source)
-	if err != nil {
-		log.Fatalf("Could not read template '%s': %v", t.Source, err)
-	}
-
-	name := filepath.Base(t.Source)
-	newTemplate, err := template.New(name).Funcs(funcs).Parse(string(tmplBytes))
-	if err != nil {
-		log.Fatalf("Could not parse template '%s': %v", t.Source, err)
-	}
-
-	buf := new(bytes.Buffer)
-	if err := newTemplate.Execute(buf, nil); err != nil {
-		log.Fatalf("Could not render template: '%s': %v", t.Source, err)
-	}
-
-	content := buf.Bytes()
-
-	if t.Dest == "" {
-		log.Debug("No destination specified. Printing to StdOut")
-		os.Stdout.Write(content)
-		return nil
-	}
-
-	log.Debug("Checking whether content has changed")
-	same, err := sameContent(content, t.Dest)
-	if err != nil {
-		return fmt.Errorf("Could not compare content for %s: %v", t.Dest, err)
-	}
-
-	if same {
-		log.Debugf("Destination %s is up to date", t.Dest)
-		return nil
-	}
-
-	log.Debug("Creating staging file")
-	stagingFile, err := createStagingFile(content, t.Dest)
-	if err != nil {
-		return err
-	}
-
-	defer os.Remove(stagingFile)
-
-	if t.CheckCmd != "" {
-		if t.NotifyLbl != "" {
-			if err := r.execLabelGroup("check", t.CheckCmd, t.NotifyLbl, t.NotifyOutput, stagingFile); err != nil {
-				return fmt.Errorf("Notify Group command failed: %v", err)
-			}
+	if t.NotifyLbl == "" {
+			// Basic check/notify command, no label group
+			r.runCheckNotify(t, "", "");
 		} else {
-			if err := check(t.CheckCmd, stagingFile); err != nil {
-				return fmt.Errorf("Check command failed: %v", err)
+			// Possible multi-container check/notify from label group
+			toNotify, _ := r.getLabelGroup(t.NotifyLbl)
+
+			for _, c := range toNotify {
+				log.Debugf("Parsing: %+v", c.Name)
+				parsedCheck, _ := parseCmdTemplate(c, t.CheckCmd)
+				parsedNotify, _ := parseCmdTemplate(c, t.NotifyCmd)
+
+				err := r.runCheckNotify(t, parsedCheck, parsedNotify);
+				if err != nil {
+					fmt.Errorf("Check notification failed for check: %v\nnotify: %v\nError: %v", parsedCheck, parsedNotify, err)
+				}
 			}
 		}
-	}
-
-	log.Debugf("Writing destination")
-	if err = copyStagingToDestination(stagingFile, t.Dest); err != nil {
-		return fmt.Errorf("Could not write destination file %s: %v", t.Dest, err)
-	}
-
-	log.Info("Destination file %s has been updated", t.Dest)
-
-	if t.NotifyCmd != "" {
-		if t.NotifyLbl != "" {
-			if err := r.execLabelGroup("notify", t.NotifyCmd, t.NotifyLbl, t.NotifyOutput, ""); err != nil {
-				return fmt.Errorf("Notify Group command failed: %v", err)
-			}
-		} else {
-			if err := notify(t.NotifyCmd, t.NotifyOutput); err != nil {
-				return fmt.Errorf("Notify command failed: %v", err)
-			}
-		}
-	}
 
 	return nil
 }
 
-func (r *runner) execLabelGroup(action string, command string, label string, verbose bool, filePath string) error {
+func (r *runner) runCheckNotify(t Template, parsedCheck string, parsedNotify string) error {
+	var err error
+
+	checkCmd := ""
+	if parsedCheck != "" {
+		checkCmd = parsedCheck
+	} else {
+		checkCmd = t.CheckCmd
+	}
+
+	if checkCmd != "" {
+		command := strings.Replace(checkCmd, "{{staging}}", t.Staging, -1)
+		if err := check(command); err != nil {
+			return fmt.Errorf("Check command failed: %v", err)
+		}
+	}
+
+	notifyCmd := ""
+	if parsedNotify != "" {
+		notifyCmd = parsedNotify
+	} else {
+		notifyCmd = t.NotifyCmd
+	}
+
+	if notifyCmd != "" {
+		if err := notify(notifyCmd, t.NotifyOutput); err != nil {
+			return fmt.Errorf("Notify command failed: %v", err)
+		}
+	}
+
+	return err
+}
+
+func (r *runner) getLabelGroup(label string) ([]Container, error){
 	nLabelName, nLabelValue := "", ""
 	toNotify := []Container{} // may be more than just Containers in the future
 
 	if label == "" {
-		return fmt.Errorf("NotifyLabelGroup failed: no label specified")
+		return nil, fmt.Errorf("NotifyLabelGroup failed: no label specified")
 	}
 
 	split := strings.Split(label, ":")
@@ -224,7 +260,7 @@ func (r *runner) execLabelGroup(action string, command string, label string, ver
 	ctx, err := r.createContext()
 	if err != nil {
 		time.Sleep(time.Second * 2)
-		return fmt.Errorf("Failed to create context from Rancher Metadata: %v", err)
+		return nil, fmt.Errorf("Failed to create context from Rancher Metadata: %v", err)
 	}
 
 	// Search Services?
@@ -234,42 +270,24 @@ func (r *runner) execLabelGroup(action string, command string, label string, ver
 		for lbl, val := range c.Labels {
 			if lbl == nLabelName {
 				if (nLabelValue == "") || (val == nLabelValue) {
-					fmt.Printf("NOTIFY: %+v :: [%+v:%+v]\n", c.Name, lbl, val)
+					log.Debugf("NOTIFY: %+v :: [%+v:%+v]", c.Name, lbl, val)
 					toNotify = append(toNotify, c)
 				}
 			}
 		}
 	}
 
-	// Iterate matched containers & notify
-	for _, c := range toNotify {
-		pCommand, _ := parseCmdTemplate(c, command)
-
-		if action == "check" {
-			if err := check(pCommand, filePath); err != nil {
-				fmt.Errorf("Check command failed: %v", err)
-			}
-		} else if action == "notify"{
-			if err := notify(pCommand, verbose); err != nil {
-				fmt.Errorf("Notify command failed: %v", err)
-			}
-		}
-	}
-
-	return nil
+	return toNotify, err;
 }
 
 func parseCmdTemplate(c Container, command string) (string, error) {
 	ret := command
-	fmt.Printf("Parsing: %+v\n", c.Name)
-
-        reg, _ := regexp.Compile(`{{[\w\.]*}}`)
-        matches := reg.FindAll( []byte(ret), -1)
-
+  reg, _ := regexp.Compile(`{{[\w\.]*}}`)
+  matches := reg.FindAll( []byte(ret), -1)
 	cStruct := structs.New(c)
 
-        for _, match := range matches {
-                key := strings.Trim(string(match), "{}")
+  for _, match := range matches {
+    key := strings.Trim(string(match), "{}")
 		if strings.Index(key, ".") == 0{
 			key = strings.Replace(key, ".", "", 1)
 		}
@@ -287,7 +305,7 @@ func parseCmdTemplate(c Container, command string) (string, error) {
 				}
 			}
 		}
-        }
+  }
 
 	return ret, nil
 }
@@ -441,17 +459,19 @@ func parseServicePorts(ports []string) []ServicePort {
 	return ret
 }
 
-func check(command, filePath string) error {
-	command = strings.Replace(command, "{{staging}}", filePath, -1)
+func check(command string) error {
+	//command = strings.Replace(command, "{{staging}}", filePath, -1)
 	log.Debugf("Running check command '%s'", command)
 	cmd := exec.Command("/bin/sh", "-c", command)
 	out, err := cmd.CombinedOutput()
+
 	if err != nil {
+		log.Printf("Check failed, skipping notify-cmd");
 		logCmdOutput(command, out)
 		return err
 	}
 
-	log.Debugf("Check cmd output: %q", string(out))
+	//log.Debugf("Check cmd output: %q", string(out))
 	return nil
 }
 
