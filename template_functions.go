@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -28,6 +29,7 @@ func newFuncMap(ctx *TemplateContext) template.FuncMap {
 		"replace":   strings.Replace,
 		"where":     where,
 		"exists":    exists,
+		"dict":      dict,
 
 		// Service funcs
 		"host":              hostFunc(ctx),
@@ -245,4 +247,20 @@ func exists(path string) (bool, error) {
 		return false, nil
 	}
 	return false, err
+}
+
+// Creates a map from a list of pairs
+func dict(values ...interface{}) (map[string]interface{}, error) {
+	if len(values)%2 != 0 {
+		return nil, errors.New("invalid dict call")
+	}
+	dict := make(map[string]interface{}, len(values)/2)
+	for i := 0; i < len(values); i += 2 {
+		key, ok := values[i].(string)
+		if !ok {
+			return nil, errors.New("dict keys must be strings")
+		}
+		dict[key] = values[i+1]
+	}
+	return dict, nil
 }
