@@ -1,4 +1,4 @@
-go-rancher-gen
+Abandoned - go-rancher-gen
 ===============
 [![Latest Version](https://img.shields.io/github/release/janeczku/go-rancher-gen.svg?maxAge=600)][release]
 [![CircleCI](https://img.shields.io/circleci/project/janeczku/go-rancher-gen.svg)][circleci]
